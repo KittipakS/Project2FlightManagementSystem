@@ -4,67 +4,65 @@
  */
 package dao;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
+import configuration.DatabaseConfiguration;
+import model.BookingModel;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
+
+
 
 /**
  *
  * @author kitti
  */
 public class BookingDao {
-    package flightmanagementsystem.file;
+   
 
-import flightmanagementsystem.model.BookingModel;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private final String SELECT_BOOKING_BASED_ON_ID_QUERY = "select id, flightId, userId from booking where userId = ?";
+    private final String DELETE_BOOKING_QUERY = "delete from booking where id = ?";
+    private final String INSERT_BOOKING_QUERY = "insert into booking (id, flightId, userId) values (?,?,?)";
 
-public class BookingFileOperations {
-
-    public List<BookingModel> getBookings() {
-        List<BookingModel> list = new ArrayList<>();
-        File file = new File("booking.txt");
-        try {
-            Scanner scanner = new Scanner(file);
-            while (scanner.hasNext()) {
-                String line = scanner.nextLine();
-                String[] splits = line.split(",");
-                BookingModel bookingModel = new BookingModel();
-                bookingModel.setId(Long.parseLong(splits[0]));
-                bookingModel.setFlightId(Long.parseLong(splits[1]));
-                bookingModel.setUserId(Long.parseLong(splits[1]));
-                list.add(bookingModel);
-            }
-        } catch (FileNotFoundException ex) {
-            System.out.println("Booking.txt file not found");
+    public void book(BookingModel bookingModel) throws SQLException {
+        try (PreparedStatement statement = DatabaseConfiguration.connect().prepareStatement(INSERT_BOOKING_QUERY)) {
+            int index = 0;
+            statement.setLong(++index, bookingModel.getId());
+            statement.setLong(++index, bookingModel.getFlightId());
+            statement.setLong(++index, bookingModel.getUserId());
+            statement.executeUpdate();
         }
-        return list;
     }
 
-    public String writeBookings(List<BookingModel> bookings) {
-        BufferedWriter writer = null;
-        try {
-            writer = new BufferedWriter(new FileWriter("booking.txt"));
-            for (BookingModel booking : bookings) {
-                String output = booking.getId() + "," + booking.getFlightId() + "," + booking.getUserId() + "\n";
-                writer.write(output);
-            }
-            writer.close();
-        } catch (IOException ex) {
-            System.out.println("Error occurred while writing to Booking.txt file.");
+    public boolean unbook(long bookingId) throws SQLException {
+        try (PreparedStatement statement = DatabaseConfiguration.connect().prepareStatement(DELETE_BOOKING_QUERY)) {
+            statement.setLong(1, bookingId);
+            return statement.executeUpdate() > 0;
         }
-        return "Successfully written to file";
+    }
+
+    public List<BookingModel> getMyAllBookings(long userId) throws SQLException {
+        List<BookingModel> bookingModels = new ArrayList<>();
+        try (PreparedStatement statement = DatabaseConfiguration.connect().prepareStatement(SELECT_BOOKING_BASED_ON_ID_QUERY)) {
+            statement.setLong(1, userId);
+            System.out.println("Executing Query: " + statement);
+
+            ResultSet results = statement.executeQuery();
+            while (results.next()) {
+                bookingModels.add(getBooking(results));
+            }
+            return bookingModels;
+        }
+    }
+
+    private BookingModel getBooking(ResultSet results) throws SQLException {
+        BookingModel bookingModel = new BookingModel();
+        bookingModel.setId(results.getInt("id"));
+        bookingModel.setFlightId(results.getInt("flightId"));
+        bookingModel.setUserId(results.getInt("userId"));
+        return bookingModel;
     }
 }
-
